@@ -9,7 +9,6 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
-#include <ArduinoOTA.h>
 #include <ElegantOTA.h>
 
 // ------------------------------ WiFi ---------------------------------
