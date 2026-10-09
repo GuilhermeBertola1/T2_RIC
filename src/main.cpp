@@ -10,6 +10,7 @@
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoOTA.h>
+#include <ElegantOTA.h>
 
 // ------------------------------ WiFi ---------------------------------
 const char *WIFI_SSID = "Integral";
@@ -104,7 +105,6 @@ void     atualizarDisplay();
 float    pontoOrvalho(float t, float rh);
 String   horaFormatada();
 void     configurarRotas();
-void     configurarOTA();
 
 // =====================================================================
 //  SETUP
@@ -184,7 +184,6 @@ void setup() {
     // ------------------------- Servidor e OTA ------------------------
     configurarRotas();
     server.begin();
-    configurarOTA();
 
     ultimaLeitura = readSensorBME();
     atualizarDisplay();
@@ -195,7 +194,7 @@ void setup() {
 //  LOOP
 // =====================================================================
 void loop() {
-    ArduinoOTA.handle();
+    ElegantOTA.loop();
     atualizarBotao();
 
     unsigned long agora = millis();
@@ -273,31 +272,11 @@ void configurarRotas() {
         request->onDisconnect([]() { ESP.restart(); });
     });
 
+    ElegantOTA.begin(&server, OTA_HOSTNAME, OTA_SENHA);
+
     server.onNotFound([](AsyncWebServerRequest *request) {
         request->send(404, "text/plain", "Rota nao encontrada");
     });
-}
-
-void configurarOTA() {
-    ArduinoOTA.setHostname(OTA_HOSTNAME);
-    ArduinoOTA.setPassword(OTA_SENHA);
-
-    ArduinoOTA.onStart([]() {
-        Serial.println("OTA iniciado");
-        if (!displayOk) return;
-        display.clear();
-        display.drawString(0, 0, "Atualizando via OTA...");
-        display.display();
-    });
-    ArduinoOTA.onProgress([](unsigned int feito, unsigned int total) {
-        if (!displayOk) return;
-        display.drawProgressBar(0, 30, 120, 10, feito * 100 / total);
-        display.display();
-    });
-    ArduinoOTA.onEnd([]() { Serial.println("\nOTA concluido"); });
-    ArduinoOTA.onError([](ota_error_t erro) { Serial.printf("Erro no OTA [%u]\n", erro); });
-
-    ArduinoOTA.begin();
 }
 
 // =====================================================================
