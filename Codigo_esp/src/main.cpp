@@ -12,8 +12,8 @@
 #include <ElegantOTA.h>
 
 // ------------------------------ WiFi ---------------------------------
-const char *WIFI_SSID = "Integral";
-const char *WIFI_PASS = "12345678";
+const char *WIFI_SSID = "ssid";
+const char *WIFI_PASS = "babyyoda";
 
 // ------------------------------ OTA ----------------------------------
 #define OTA_HOSTNAME "esp-lora"

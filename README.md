@@ -37,7 +37,7 @@ O funcionamento se divide em três partes:
 |---|---|---|
 | **Aquisição** | ESP32 | Lê o BME280 a cada 1 s, acumula a estatística, monitora o botão e atualiza o display. |
 | **Comunicação** | ESP32 (servidor) ↔ Node-RED (cliente) | O ESP32 responde requisições HTTP com JSON; o Node-RED pergunta a cada 1 s e envia comandos. |
-| **Visualização e controle** | Node-RED | Mostra gauges, gráficos, contagem do botão e a tabela de estatística; liga/desliga o LED e zera a estatística. |
+| **Visualização e controle** | Node-RED | Mostra gauges, gráficos, contagem do botão, alerta de temperatura e tabela de estatística; liga/desliga o LED e zera a estatística. |
 
 O ESP32 funciona como **servidor**: ele não envia dados por conta própria, apenas responde quando alguém pede. Por isso qualquer cliente HTTP (Node-RED, navegador etc.) consegue consultar a placa usando as mesmas rotas.
 
@@ -55,7 +55,7 @@ O ESP32 funciona como **servidor**: ele não envia dados por conta própria, ape
 
 | Função | Pino (GPIO) | Observação |
 |---|---|---|
-| BME280 — SDA | 21 | Barramento I2C **secundário** (`TwoWire(1)`) |
+| BME280 — SDA | 23 | Barramento I2C **secundário** (`TwoWire(1)`) |
 | BME280 — SCL | 22 | |
 | BME280 — VCC / GND | 3V3 / GND | |
 | OLED — SDA | 4 | Barramento I2C **primário**, interno da placa |
@@ -64,7 +64,7 @@ O ESP32 funciona como **servidor**: ele não envia dados por conta própria, ape
 | LED | 25 | LED branco da placa |
 | Botão | 0 | Botão **PRG** da placa (`INPUT_PULLUP`, ativo em LOW) |
 
-O sensor e o display ficam em **barramentos I2C separados**: o display usa o barramento interno da placa (4/15) e o BME280 usa um segundo barramento (21/22). Assim um não interfere no outro.
+O sensor e o display ficam em **barramentos I2C separados**: o display usa o barramento interno da placa (4/15) e o BME280 usa um segundo barramento (23/22). O GPIO21 controla a saída Vext da Heltec V2 e não é usado pelo BME280.
 
 ---
 
@@ -326,12 +326,14 @@ flowchart LR
     subgraph Leitura
         I1[inject<br/>a cada 1 s] --> F1[function<br/>monta requisições]
         F1 -- saída 1 --> H1[http request<br/>GET /dados] --> F2[function<br/>separa leituras] --> W[gauges, gráficos,<br/>textos, switch]
+        H1 --> A[function<br/>verifica temperatura] --> AV[texto<br/>alerta]
         F1 -- saída 2 --> H2[http request<br/>GET /stats] --> T[template<br/>tabela de estatística]
     end
     subgraph Controle
         S[switch LED] --> F3[function<br/>monta comando POST]
         B[button<br/>Zerar estatística] --> F3
         F3 --> H3[http request<br/>método via msg.method] --> D[debug]
+        L[numeric<br/>limite de temperatura] --> FL[function<br/>salva limite]
     end
 ```
 
@@ -352,6 +354,8 @@ A função **separa leituras** recebe o JSON de `/dados` e o distribui por **10 
 
 Se o ESP não responder (`statusCode` diferente de 200), a função atualiza apenas o status para **🔴 Offline** e mantém os demais widgets como estavam.
 
+O nó **verifica temperatura** recebe a mesma resposta de `/dados` e atualiza o aviso no dashboard. Ele mostra **ALERTA** quando a temperatura é maior ou igual ao limite, **Normal** quando está abaixo dele e informa falha de conexão ou sensor. O limite começa em **30 °C** e pode ser ajustado no widget **Limite de temperatura (°C)**, entre 0 e 50 °C, em passos de 0,5 °C. O valor fica na memória do Node-RED; após reiniciar o fluxo, volta a 30 °C.
+
 O JSON de `/stats` vai direto para o nó **template**, que monta a tabela em HTML usando as expressões do AngularJS (por exemplo, `{{msg.payload.temperatura.media | number:2}}`).
 
 **3. Controle.** O switch do LED (tópico `led`, valores `"1"`/`"0"`) e o botão **Zerar estatística** (tópico `stats/reset`) enviam mensagens para a função **monta comando POST**, que define `msg.method = 'POST'` e monta a URL a partir do tópico:
@@ -369,7 +373,7 @@ O dashboard tem uma aba, **Estação ESP**, com três grupos:
 | Grupo | Conteúdo |
 |---|---|
 | **Leitura de dados** | Gauges de temperatura (0–50 °C), umidade (0–100 %) e pressão (900–1050 hPa); gráficos de linha dos últimos 10 minutos de cada variável; contagem e estado do botão |
-| **Controle do ESP** | Status da conexão (online/offline e versão do firmware) e switch para ligar/desligar o LED |
+| **Controle do ESP** | Status da conexão (online/offline e versão do firmware), switch do LED, ajuste do limite de temperatura e aviso de alerta |
 | **Análise estatística** | Tabela com número de amostras, horário de início, e média, desvio padrão, mínimo e máximo de temperatura, umidade, pressão e altitude; botão para zerar a estatística |
 
 ---
@@ -405,6 +409,7 @@ O dashboard tem uma aba, **Estação ESP**, com três grupos:
 5. Abra o nó **"IP do ESP (edite aqui)"** e troque `192.168.0.50` pelo IP mostrado no display ou no monitor serial.
 6. Clique em **Implementar**.
 7. Acesse o dashboard em `http://localhost:1880/ui`.
+8. No grupo **Controle do ESP**, ajuste **Limite de temperatura (°C)**. Para testar o alerta, escolha um limite abaixo da temperatura medida e depois um acima dela.
 
 O computador com o Node-RED e o ESP32 precisam estar **na mesma rede**.
 
@@ -416,7 +421,7 @@ O computador com o Node-RED e o ESP32 precisam estar **na mesma rede**.
 |---|---|---|
 | Status **🔴 Offline** no dashboard | IP errado no nó "IP do ESP", ou PC e ESP em redes diferentes | Confira o IP no display/monitor serial e teste `http://IP/dados` no navegador |
 | Monitor serial mostra `Wi-Fi falhou, reiniciando...` | SSID/senha errados ou rede fora de alcance | Corrija `WIFI_SSID`/`WIFI_PASS`; o ESP32 só conecta em redes de 2,4 GHz |
-| `"sensor_ok": false` e valores zerados | BME280 não encontrado | Confira a ligação SDA (21) / SCL (22) e a alimentação; alguns módulos usam o endereço `0x77` |
+| `"sensor_ok": false` e valores zerados | BME280 não encontrado | Confira a ligação SDA (23) / SCL (22) e a alimentação; alguns módulos usam o endereço `0x77` |
 | Horário de início da estatística em 1970 | Sem acesso à internet no boot (NTP falhou) | Não afeta as medições; com internet, o horário é sincronizado na próxima inicialização |
 | Erro de compilação em `ElegantOTA.begin` | Falta a flag do servidor assíncrono | Confira `build_flags = -DELEGANTOTA_USE_ASYNC_WEBSERVER=1` no `platformio.ini` |
 | Página `/update` recusa o login | Usuário/senha incorretos | Usuário = `OTA_HOSTNAME`, senha = `OTA_SENHA` |

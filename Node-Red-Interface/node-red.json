@@ -186,7 +186,8 @@
     "y": 180,
     "wires": [
       [
-        "f_sep"
+        "f_sep",
+        "f_alert"
       ]
     ]
   },
@@ -671,6 +672,118 @@
     "statusType": "auto",
     "x": 790,
     "y": 700,
+    "wires": []
+  },
+  {
+    "id": "n_limite_inicial",
+    "type": "inject",
+    "z": "tab_esp",
+    "name": "limite inicial: 30 °C",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "0.2",
+    "topic": "",
+    "payload": "30",
+    "payloadType": "num",
+    "x": 160,
+    "y": 800,
+    "wires": [
+      [
+        "w_limite_temp"
+      ]
+    ]
+  },
+  {
+    "id": "w_limite_temp",
+    "type": "ui_numeric",
+    "z": "tab_esp",
+    "name": "limite de temperatura",
+    "label": "Limite de temperatura (°C)",
+    "tooltip": "Temperatura a partir da qual aparece o alerta",
+    "group": "g_ctrl",
+    "order": 3,
+    "width": "4",
+    "height": "1",
+    "wrap": false,
+    "passthru": true,
+    "topic": "limite_temp",
+    "topicType": "str",
+    "format": "{{value}} °C",
+    "min": 0,
+    "max": 50,
+    "step": 0.5,
+    "className": "",
+    "x": 400,
+    "y": 800,
+    "wires": [
+      [
+        "f_salva_limite"
+      ]
+    ]
+  },
+  {
+    "id": "f_salva_limite",
+    "type": "function",
+    "z": "tab_esp",
+    "name": "salva limite",
+    "func": "const limite = Number(msg.payload);\nif (Number.isFinite(limite) && limite >= 0 && limite <= 50) {\n    flow.set('limite_temp', limite);\n}\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 800,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "f_alert",
+    "type": "function",
+    "z": "tab_esp",
+    "name": "verifica temperatura",
+    "func": "if (msg.statusCode !== 200) {\n    return { payload: '🔴 Sem conexão com a placa' };\n}\n\nconst dados = msg.payload;\nif (!dados || !dados.sensor_ok || typeof dados.temperatura !== 'number' || !Number.isFinite(dados.temperatura)) {\n    return { payload: '⚠️ Sensor indisponível' };\n}\n\nconst limite = Number(flow.get('limite_temp') ?? 30);\nconst temperatura = dados.temperatura;\nreturn {\n    payload: temperatura >= limite\n        ? `ALERTA: ${temperatura.toFixed(1)} °C (limite ${limite} °C)`\n        : `Normal: ${temperatura.toFixed(1)} °C (limite ${limite} °C)`\n};",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 700,
+    "y": 260,
+    "wires": [
+      [
+        "w_alerta_temp"
+      ]
+    ]
+  },
+  {
+    "id": "w_alerta_temp",
+    "type": "ui_text",
+    "z": "tab_esp",
+    "group": "g_ctrl",
+    "order": 4,
+    "width": "4",
+    "height": "1",
+    "name": "",
+    "label": "Alerta de temperatura",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "x": 950,
+    "y": 260,
     "wires": []
   },
   {
