@@ -217,6 +217,7 @@ void configurarRotas() {
         doc["altitude"]      = d.altitude;
         doc["ponto_orvalho"] = pontoOrvalho(d.temperatura, d.umidade);
         doc["botao"]         = botaoEstado;
+        doc["toques_botao"]  = botaoContagemPressoes;
         doc["led"]           = ledEstado;
         doc["rssi"]          = WiFi.RSSI();
         doc["uptime_s"]      = millis() / 1000;
