@@ -1,0 +1,1354 @@
+[
+    {
+        "id": "f1a265404c7b2006",
+        "type": "tab",
+        "label": "Estação ESP",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "ebffa7c3b8680f04",
+        "type": "comment",
+        "z": "f1a265404c7b2006",
+        "name": "1) Configuração: coloque aqui o IP do ESP",
+        "info": "",
+        "x": 190,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "b4026b71539f5ba5",
+        "type": "inject",
+        "z": "f1a265404c7b2006",
+        "name": "ao iniciar",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 80,
+        "wires": [
+            [
+                "04bba2a825dd832b"
+            ]
+        ]
+    },
+    {
+        "id": "04bba2a825dd832b",
+        "type": "change",
+        "z": "f1a265404c7b2006",
+        "name": "IP do ESP",
+        "rules": [
+            {
+                "t": "set",
+                "p": "esp_ip",
+                "pt": "flow",
+                "to": "10.155.221.110",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "esp_ip",
+                "tot": "flow"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 310,
+        "y": 80,
+        "wires": [
+            [
+                "06f891d1d72756ee"
+            ]
+        ]
+    },
+    {
+        "id": "4b6a74a86f682ee6",
+        "type": "comment",
+        "z": "f1a265404c7b2006",
+        "name": "2) Leitura de dados e estatística (a cada 1 s)",
+        "info": "",
+        "x": 210,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "4a875d08577bd4e1",
+        "type": "inject",
+        "z": "f1a265404c7b2006",
+        "name": "a cada 1 s",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "1",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 110,
+        "y": 280,
+        "wires": [
+            [
+                "93617e72898dae5e"
+            ]
+        ]
+    },
+    {
+        "id": "93617e72898dae5e",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "monta requisições",
+        "func": "// Monta as duas requisições: leituras e estatística\nconst ip = flow.get('esp_ip');\nif (!ip) return null;\nreturn [\n    { url: `http://${ip}/dados`, requestTimeout: 2000 },\n    { url: `http://${ip}/stats`, requestTimeout: 2000 }\n];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 290,
+        "y": 280,
+        "wires": [
+            [
+                "43a4a1800f3d42ff"
+            ],
+            [
+                "b5cbe438213ea0ee"
+            ]
+        ]
+    },
+    {
+        "id": "43a4a1800f3d42ff",
+        "type": "http request",
+        "z": "f1a265404c7b2006",
+        "name": "GET /dados",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 510,
+        "y": 260,
+        "wires": [
+            [
+                "96c0afe0c5cb409a",
+                "433e9e96a59d7eb4",
+                "68ac507b7851802e",
+                "da2eaf04fd95dcd0"
+            ]
+        ]
+    },
+    {
+        "id": "b5cbe438213ea0ee",
+        "type": "http request",
+        "z": "f1a265404c7b2006",
+        "name": "GET /stats",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 450,
+        "y": 460,
+        "wires": [
+            [
+                "ad0d073a9a83bc52"
+            ]
+        ]
+    },
+    {
+        "id": "96c0afe0c5cb409a",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "separa leituras",
+        "func": "// Saídas: 1 gauge T | 2 gauge U | 3 gauge P | 4 gráfico T | 5 gráfico U | 6 gráfico P\n//         7 toques do botão | 8 estado do botão | 9 status | 10 switch do LED\nif (msg.statusCode !== 200) {\n    return [null, null, null, null, null, null, null, null, { payload: '🔴 Offline' }, null];\n}\n\nconst d = msg.payload;\nreturn [\n    { payload: d.temperatura },\n    { payload: d.umidade },\n    { payload: d.pressao },\n    { topic: 'Temperatura', payload: d.temperatura },\n    { topic: 'Umidade', payload: d.umidade },\n    { topic: 'Pressão', payload: d.pressao },\n    { payload: d.toques_botao ?? 0 },\n    { payload: d.botao ? 'Pressionado' : 'Solto' },\n    { payload: '🟢 Online · fw ' + d.versao },\n    { payload: d.led ? '1' : '0' },\n    { topic: 'Altitude', payload: d.altitude }\n];",
+        "outputs": 11,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 680,
+        "y": 160,
+        "wires": [
+            [
+                "81136626be2a3d29"
+            ],
+            [
+                "18c359aa5e1f4042"
+            ],
+            [
+                "985cbdb8d1107e95"
+            ],
+            [
+                "e83f60a24c6b14f6"
+            ],
+            [
+                "a581dec59c1c6e4a"
+            ],
+            [
+                "e791ade60a62618a"
+            ],
+            [
+                "367fe18ee83d35e1"
+            ],
+            [
+                "9e5b678b94019a50"
+            ],
+            [
+                "bdad92882f07a73b"
+            ],
+            [
+                "ca5ab85d5e492f91"
+            ],
+            [
+                "dfb64aed7b6e168a"
+            ]
+        ]
+    },
+    {
+        "id": "81136626be2a3d29",
+        "type": "ui_gauge",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_leit",
+        "order": 2,
+        "width": 4,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Temperatura",
+        "label": "°C",
+        "format": "{{value | number:1}}",
+        "min": "0",
+        "max": "50",
+        "colors": [
+            "#2e7d32",
+            "#f9a825",
+            "#c62828"
+        ],
+        "seg1": "28",
+        "seg2": "32",
+        "diff": false,
+        "className": "",
+        "x": 990,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "18c359aa5e1f4042",
+        "type": "ui_gauge",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_leit",
+        "order": 3,
+        "width": 4,
+        "height": 3,
+        "gtype": "wave",
+        "title": "Umidade",
+        "label": "%",
+        "format": "{{value | number:1}}",
+        "min": "0",
+        "max": "100",
+        "colors": [
+            "#1e88e5",
+            "#1e88e5",
+            "#1e88e5"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 980,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "985cbdb8d1107e95",
+        "type": "ui_gauge",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_leit",
+        "order": 4,
+        "width": 4,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Pressão",
+        "label": "hPa",
+        "format": "{{value | number:1}}",
+        "min": "900",
+        "max": "1050",
+        "colors": [
+            "#6a1b9a",
+            "#6a1b9a",
+            "#6a1b9a"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 980,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "e83f60a24c6b14f6",
+        "type": "ui_chart",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_leit",
+        "order": 10,
+        "width": 4,
+        "height": 4,
+        "label": "Temperatura (°C)",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "aguardando dados...",
+        "dot": false,
+        "ymin": "",
+        "ymax": "",
+        "removeOlder": "10",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "60",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#c62828",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 1010,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a581dec59c1c6e4a",
+        "type": "ui_chart",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_leit",
+        "order": 11,
+        "width": 4,
+        "height": 4,
+        "label": "Umidade (%)",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "aguardando dados...",
+        "dot": false,
+        "ymin": "",
+        "ymax": "",
+        "removeOlder": "10",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "60",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1e88e5",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 990,
+        "y": 200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e791ade60a62618a",
+        "type": "ui_chart",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_leit",
+        "order": 12,
+        "width": 4,
+        "height": 4,
+        "label": "Pressão (hPa)",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "aguardando dados...",
+        "dot": false,
+        "ymin": "",
+        "ymax": "",
+        "removeOlder": "10",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "60",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#6a1b9a",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8",
+            "#aec7e8"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 1000,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "367fe18ee83d35e1",
+        "type": "ui_text",
+        "z": "f1a265404c7b2006",
+        "group": "g_leit",
+        "order": 19,
+        "width": 6,
+        "height": 1,
+        "name": "",
+        "label": "Botão pressionado (vezes)",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1040,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "9e5b678b94019a50",
+        "type": "ui_text",
+        "z": "f1a265404c7b2006",
+        "group": "g_leit",
+        "order": 20,
+        "width": 6,
+        "height": 1,
+        "name": "",
+        "label": "Estado do botão",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1000,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "bdad92882f07a73b",
+        "type": "ui_text",
+        "z": "f1a265404c7b2006",
+        "group": "g_ctrl",
+        "order": 1,
+        "width": 8,
+        "height": 1,
+        "name": "",
+        "label": "Status",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 970,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "0bb4431ee873c098",
+        "type": "comment",
+        "z": "f1a265404c7b2006",
+        "name": "3) Controle do ESP (LED e zerar estatística)",
+        "info": "",
+        "x": 180,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "ca5ab85d5e492f91",
+        "type": "ui_switch",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "label": "LED da placa",
+        "tooltip": "",
+        "group": "g_ctrl",
+        "order": 3,
+        "width": 8,
+        "height": 1,
+        "passthru": false,
+        "decouple": "false",
+        "topic": "led",
+        "topicType": "str",
+        "style": "",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "animate": true,
+        "className": "",
+        "x": 1000,
+        "y": 440,
+        "wires": [
+            [
+                "7c4584b25ad9d92a"
+            ]
+        ]
+    },
+    {
+        "id": "035d2303eb599313",
+        "type": "ui_button",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_est",
+        "order": 2,
+        "width": 8,
+        "height": 1,
+        "passthru": false,
+        "label": "Zerar estatística",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "stats/reset",
+        "topicType": "str",
+        "x": 120,
+        "y": 560,
+        "wires": [
+            [
+                "7c4584b25ad9d92a"
+            ]
+        ]
+    },
+    {
+        "id": "7c4584b25ad9d92a",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "monta comando POST",
+        "func": "// Monta o POST para o ESP. O topic diz qual rota usar.\nconst ip = flow.get('esp_ip');\nif (!ip) return null;\nmsg.method = 'POST';\nmsg.requestTimeout = 2000;\nif (msg.topic === 'led') {\n    msg.url = `http://${ip}/led?estado=${msg.payload}`;\n} else {\n    msg.url = `http://${ip}/${msg.topic}`;      // ex.: stats/reset\n}\nmsg.payload = '';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 560,
+        "wires": [
+            [
+                "f504f33e65423990"
+            ]
+        ]
+    },
+    {
+        "id": "f504f33e65423990",
+        "type": "http request",
+        "z": "f1a265404c7b2006",
+        "name": "envia comando",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 550,
+        "y": 560,
+        "wires": [
+            [
+                "91935d17ac08517d"
+            ]
+        ]
+    },
+    {
+        "id": "91935d17ac08517d",
+        "type": "debug",
+        "z": "f1a265404c7b2006",
+        "name": "resposta do comando",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 760,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "f4944dc615a9ee65",
+        "type": "inject",
+        "z": "f1a265404c7b2006",
+        "name": "limite inicial: 30 °C",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.2",
+        "topic": "",
+        "payload": "30",
+        "payloadType": "num",
+        "x": 130,
+        "y": 620,
+        "wires": [
+            [
+                "b5e2d38f361aa64b"
+            ]
+        ]
+    },
+    {
+        "id": "b5e2d38f361aa64b",
+        "type": "ui_numeric",
+        "z": "f1a265404c7b2006",
+        "name": "limite de temperatura",
+        "label": "Limite de temperatura (°C)",
+        "tooltip": "Temperatura a partir da qual aparece o alerta",
+        "group": "g_ctrl",
+        "order": 7,
+        "width": 8,
+        "height": 1,
+        "wrap": false,
+        "passthru": true,
+        "topic": "limite_temp",
+        "topicType": "str",
+        "format": "{{value}} °C",
+        "min": 0,
+        "max": 50,
+        "step": 0.5,
+        "className": "",
+        "x": 390,
+        "y": 620,
+        "wires": [
+            [
+                "7ce9a8fba0cb6b21"
+            ]
+        ]
+    },
+    {
+        "id": "7ce9a8fba0cb6b21",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "salva limite",
+        "func": "const limite = Number(msg.payload);\nif (Number.isFinite(limite) && limite >= 0 && limite <= 50) {\n    flow.set('limite_temp', limite);\n}\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 620,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "433e9e96a59d7eb4",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "verifica temperatura",
+        "func": "if (msg.statusCode !== 200) {\n    return { payload: '🔴 Sem conexão com a placa' };\n}\n\nconst dados = msg.payload;\nif (!dados || !dados.sensor_ok || typeof dados.temperatura !== 'number' || !Number.isFinite(dados.temperatura)) {\n    return { payload: '⚠️ Sensor indisponível' };\n}\n\nconst limite = Number(flow.get('limite_temp') ?? 30);\nconst temperatura = dados.temperatura;\nreturn {\n    payload: temperatura >= limite\n        ? `ALERTA: ${temperatura.toFixed(1)} °C (limite ${limite} °C)`\n        : `Normal: ${temperatura.toFixed(1)} °C (limite ${limite} °C)`\n};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 340,
+        "wires": [
+            [
+                "7a7a404117b9254e"
+            ]
+        ]
+    },
+    {
+        "id": "7a7a404117b9254e",
+        "type": "ui_text",
+        "z": "f1a265404c7b2006",
+        "group": "g_ctrl",
+        "order": 9,
+        "width": 8,
+        "height": 1,
+        "name": "",
+        "label": "Alerta de temperatura",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 540,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "ad0d073a9a83bc52",
+        "type": "ui_template",
+        "z": "f1a265404c7b2006",
+        "group": "g_est",
+        "name": "tabela de estatística",
+        "order": 1,
+        "width": 8,
+        "height": 4,
+        "format": "<div ng-if=\"msg.payload.amostras !== undefined\">\n  <p style=\"margin:0 0 10px\">\n    Amostras analisadas: <b>{{msg.payload.amostras}}</b>\n    <span ng-if=\"msg.payload.inicio\"> · desde {{msg.payload.inicio}}</span>\n  </p>\n  <table style=\"width:100%; border-collapse:collapse; text-align:right\">\n    <tr style=\"border-bottom:1px solid rgba(128,128,128,.4)\">\n      <th style=\"text-align:left\">Variável</th><th>Média</th><th>Desvio padrão</th><th>Mínimo</th><th>Máximo</th>\n    </tr>\n    <tr>\n      <td style=\"text-align:left\">Temperatura (°C)</td>\n      <td>{{msg.payload.temperatura.media | number:2}}</td><td>{{msg.payload.temperatura.dp | number:2}}</td>\n      <td>{{msg.payload.temperatura.min | number:2}}</td><td>{{msg.payload.temperatura.max | number:2}}</td>\n    </tr>\n    <tr>\n      <td style=\"text-align:left\">Umidade (%)</td>\n      <td>{{msg.payload.umidade.media | number:2}}</td><td>{{msg.payload.umidade.dp | number:2}}</td>\n      <td>{{msg.payload.umidade.min | number:2}}</td><td>{{msg.payload.umidade.max | number:2}}</td>\n    </tr>\n    <tr>\n      <td style=\"text-align:left\">Pressão (hPa)</td>\n      <td>{{msg.payload.pressao.media | number:2}}</td><td>{{msg.payload.pressao.dp | number:2}}</td>\n      <td>{{msg.payload.pressao.min | number:2}}</td><td>{{msg.payload.pressao.max | number:2}}</td>\n    </tr>\n    <tr>\n      <td style=\"text-align:left\">Altitude (m)</td>\n      <td>{{msg.payload.altitude.media | number:1}}</td><td>{{msg.payload.altitude.dp | number:2}}</td>\n      <td>{{msg.payload.altitude.min | number:1}}</td><td>{{msg.payload.altitude.max | number:1}}</td>\n    </tr>\n  </table>\n</div>\n<div ng-if=\"msg.payload.amostras === undefined\">Aguardando o ESP...</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 640,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "dfb64aed7b6e168a",
+        "type": "ui_chart",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_leit",
+        "order": 13,
+        "width": 4,
+        "height": 4,
+        "label": "Altitude (m)",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "",
+        "ymax": "",
+        "removeOlder": "10",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 990,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "06f891d1d72756ee",
+        "type": "ui_template",
+        "z": "f1a265404c7b2006",
+        "group": "g_ctrl",
+        "name": "Botão OTA",
+        "order": 11,
+        "width": 8,
+        "height": 1,
+        "format": "<script>\n    (function(scope) {\n    scope.$watch('msg', function(msg) {\n        if (msg && typeof msg.payload === 'string' && msg.payload.length > 0) {\n            scope.ip = msg.payload;\n        }\n    });\n})(scope);\n</script>\n\n<a class=\"md-button md-raised\" style=\"width:100%; margin:0\" ng-href=\"http://{{ip}}/update\" target=\"_blank\">\n    <i class=\"fa fa-upload\"></i> Atualizar firmware (OTA)\n</a>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 510,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "6d91714c8622f5d7",
+        "type": "ui_switch",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "label": "Modo automático",
+        "tooltip": "",
+        "group": "g_ctrl",
+        "order": 5,
+        "width": 8,
+        "height": 1,
+        "passthru": true,
+        "decouple": "false",
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": false,
+        "className": "",
+        "x": 130,
+        "y": 680,
+        "wires": [
+            [
+                "6948271cdb01666c"
+            ]
+        ]
+    },
+    {
+        "id": "6948271cdb01666c",
+        "type": "change",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "modo_auto",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 360,
+        "y": 680,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "68ac507b7851802e",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "controle automatico",
+        "func": "// Liga/desliga o LED sozinho conforme o limite de temperatura\nif (msg.statusCode !== 200) return null;\n\nconst d = msg.payload;\nif (!d || !d.sensor_ok || typeof d.temperatura !== 'number') return null;\nif (!flow.get('modo_auto')) return null;            // modo automático desligado\n\nconst limite = Number(flow.get('limite_temp') ?? 30);\nconst HIST   = 0.5;   // histerese em °C\nconst T      = d.temperatura;\n\n// Passou do limite e o LED está apagado → liga\nif (T >= limite && !d.led) {\n    return { topic: 'led', payload: '1' };\n}\n// Voltou abaixo de (limite - histerese) e o LED está aceso → desliga\nif (T < limite - HIST && d.led) {\n    return { topic: 'led', payload: '0' };\n}\nreturn null;   // nada a fazer",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1010,
+        "y": 500,
+        "wires": [
+            [
+                "7c4584b25ad9d92a"
+            ]
+        ]
+    },
+    {
+        "id": "da2eaf04fd95dcd0",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "info do sistema",
+        "func": "// Saídas: 1 gauge do sinal Wi-Fi | 2 tempo ligado | 3 memória livre\nif (msg.statusCode !== 200 || !msg.payload) {\n    return [null, { payload: '—' }, { payload: '—' }];\n}\n\nconst d = msg.payload;\n\n// uptime_s (segundos) → \"1d 3h 25min 10s\"\nconst s = d.uptime_s || 0;\nconst dias = Math.floor(s / 86400);\nconst h = Math.floor((s % 86400) / 3600);\nconst min = Math.floor((s % 3600) / 60);\nconst seg = s % 60;\nconst uptime = (dias ? dias + 'd ' : '') + h + 'h ' + min + 'min ' + seg + 's';\n\n// heap_livre (bytes) → kB\nconst memoria = ((d.heap_livre || 0) / 1024).toFixed(1) + ' kB';\n\nreturn [\n    { payload: d.rssi },\n    { payload: uptime },\n    { payload: memoria }\n];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1000,
+        "y": 560,
+        "wires": [
+            [
+                "6f95ec0f2bb267b9"
+            ],
+            [
+                "71feed4645439423"
+            ],
+            [
+                "c27b4c4e93a1a843"
+            ]
+        ]
+    },
+    {
+        "id": "6f95ec0f2bb267b9",
+        "type": "ui_gauge",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "30c24876af47de91",
+        "order": 1,
+        "width": 5,
+        "height": 5,
+        "gtype": "gage",
+        "title": "Sinal Wi-Fi",
+        "label": "dBm",
+        "format": "{{value}}",
+        "min": "-100",
+        "max": "-30",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "-80",
+        "seg2": "-67",
+        "diff": false,
+        "className": "",
+        "x": 1250,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "71feed4645439423",
+        "type": "ui_text",
+        "z": "f1a265404c7b2006",
+        "group": "30c24876af47de91",
+        "order": 2,
+        "width": 5,
+        "height": 1,
+        "name": "",
+        "label": "Ligado há",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 1240,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "c27b4c4e93a1a843",
+        "type": "ui_text",
+        "z": "f1a265404c7b2006",
+        "group": "30c24876af47de91",
+        "order": 3,
+        "width": 5,
+        "height": 1,
+        "name": "",
+        "label": "Memória livre",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 1260,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "b9e6ecaec117bd52",
+        "type": "ui_button",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_ctrl",
+        "order": 14,
+        "width": 4,
+        "height": 1,
+        "passthru": false,
+        "label": "Reiniciar ESP",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "refresh",
+        "payload": "O ESP vai reiniciar e ficar alguns segundos offline.",
+        "payloadType": "str",
+        "topic": "Reiniciar o ESP?",
+        "topicType": "str",
+        "x": 100,
+        "y": 740,
+        "wires": [
+            [
+                "6f47e3ea26e56440"
+            ]
+        ]
+    },
+    {
+        "id": "6f47e3ea26e56440",
+        "type": "ui_toast",
+        "z": "f1a265404c7b2006",
+        "position": "dialog",
+        "displayTime": "3",
+        "highlight": "",
+        "sendall": true,
+        "outputs": 1,
+        "ok": "Reiniciar",
+        "cancel": "Cancelar",
+        "raw": false,
+        "className": "",
+        "topic": "",
+        "name": "",
+        "x": 310,
+        "y": 740,
+        "wires": [
+            [
+                "0cf9ef625d76e2b2"
+            ]
+        ]
+    },
+    {
+        "id": "0cf9ef625d76e2b2",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "function 1",
+        "func": "if (msg.payload !== 'Reiniciar') return null;\nreturn { topic: 'reiniciar', payload: '' };",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 740,
+        "wires": [
+            [
+                "7c4584b25ad9d92a"
+            ]
+        ]
+    },
+    {
+        "id": "25bc37cc2c8696ac",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 1,
+        "width": 2,
+        "height": 1
+    },
+    {
+        "id": "7d9525c5a4c2efe6",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 5,
+        "width": 3,
+        "height": 1
+    },
+    {
+        "id": "ad558cd512af3ac0",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 6,
+        "width": 2,
+        "height": 1
+    },
+    {
+        "id": "e9cadb26bc2d4528",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 7,
+        "width": 3,
+        "height": 1
+    },
+    {
+        "id": "82c178b72182e215",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 8,
+        "width": 2,
+        "height": 1
+    },
+    {
+        "id": "4aeef63be57b7aef",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 9,
+        "width": 3,
+        "height": 1
+    },
+    {
+        "id": "3f77faf94c4dde64",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 14,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "461fdf422102c733",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 15,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "2e700a500e1fa5fc",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 16,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "c606e9232490d2ae",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 17,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "53c431d155498af5",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 18,
+        "width": 2,
+        "height": 1
+    },
+    {
+        "id": "f8c0fe61f99128f2",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_leit",
+        "order": 21,
+        "width": 3,
+        "height": 1
+    },
+    {
+        "id": "90b471930d400ad3",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 2,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "e8d9d65fa5ae4781",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 4,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "a0b662569e1d52d3",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 6,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "4b8cba13879472af",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 8,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "1017e2651bbe91e6",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 10,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "772ff3119bc9db62",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 12,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "2c33fe8f21544255",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 13,
+        "width": 2,
+        "height": 1
+    },
+    {
+        "id": "21bea1a1bdc584fa",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 15,
+        "width": 3,
+        "height": 1
+    },
+    {
+        "id": "g_leit",
+        "type": "ui_group",
+        "name": "Leitura de dados",
+        "tab": "aba_estacao",
+        "order": 1,
+        "disp": true,
+        "width": "17",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "g_ctrl",
+        "type": "ui_group",
+        "name": "Controle do ESP",
+        "tab": "aba_estacao",
+        "order": 2,
+        "disp": true,
+        "width": "9",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "g_est",
+        "type": "ui_group",
+        "name": "Análise estatística",
+        "tab": "aba_estacao",
+        "order": 3,
+        "disp": true,
+        "width": "8",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "30c24876af47de91",
+        "type": "ui_group",
+        "name": "Informações do sistema",
+        "tab": "aba_estacao",
+        "order": 4,
+        "disp": true,
+        "width": "5",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "aba_estacao",
+        "type": "ui_tab",
+        "name": "Estação ESP",
+        "icon": "dashboard",
+        "order": 1,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "c12a2893204a0411",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6"
+        }
+    }
+]

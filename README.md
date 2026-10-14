@@ -28,7 +28,8 @@ flowchart LR
     ESP --> LED[LED da placa]
     NR[Node-RED<br/>dashboard] -- "GET /dados e GET /stats (a cada 1 s)" --> ESP
     NR -- "POST /led e POST /stats/reset" --> ESP
-    PC[Navegador] -- "/update (OTA)" --> ESP
+    NR -- "botão abre /update" --> PC[Navegador]
+    PC -- "/update (OTA)" --> ESP
 ```
 
 O funcionamento se divide em três partes:
@@ -37,7 +38,7 @@ O funcionamento se divide em três partes:
 |---|---|---|
 | **Aquisição** | ESP32 | Lê o BME280 a cada 1 s, acumula a estatística, monitora o botão e atualiza o display. |
 | **Comunicação** | ESP32 (servidor) ↔ Node-RED (cliente) | O ESP32 responde requisições HTTP com JSON; o Node-RED pergunta a cada 1 s e envia comandos. |
-| **Visualização e controle** | Node-RED | Mostra gauges, gráficos, contagem do botão, alerta de temperatura e tabela de estatística; liga/desliga o LED e zera a estatística. |
+| **Visualização e controle** | Node-RED | Mostra gauges, gráficos, contagem do botão, alerta de temperatura, tabela de estatística e informações do sistema (sinal Wi-Fi, tempo ligado e memória livre); liga/desliga o LED manualmente ou de forma automática pela temperatura, zera a estatística e dá acesso à página de OTA. |
 
 O ESP32 funciona como **servidor**: ele não envia dados por conta própria, apenas responde quando alguém pede. Por isso qualquer cliente HTTP (Node-RED, navegador etc.) consegue consultar a placa usando as mesmas rotas.
 
@@ -151,7 +152,7 @@ void loop() {
 
 Não há nenhum `delay()` no laço: o tempo é controlado com `millis()`. Assim o botão é verificado continuamente e o servidor e a OTA continuam respondendo enquanto o programa aguarda a próxima leitura.
 
-### 4.5 Leitura do sensor e grandezas derivadas
+### 4.5 Leitura do sensor e altitude
 
 `readSensorBME()` devolve uma estrutura `DadosBME` com:
 
@@ -160,12 +161,6 @@ Não há nenhum `delay()` no laço: o tempo é controlado com `millis()`. Assim 
 - **Altitude estimada** (m): calculada pela biblioteca a partir da pressão medida $P$ e da pressão de referência ao nível do mar $P_0$ (`SEALEVELPRESSURE_HPA`):
 
 $$h = 44330 \cdot \left[1 - \left(\frac{P}{P_0}\right)^{0{,}1903}\right]$$
-
-Além disso, a rota `/dados` calcula o **ponto de orvalho** pela fórmula de Magnus, com $a = 17{,}62$ e $b = 243{,}12\ °C$:
-
-$$\gamma = \ln\!\left(\frac{UR}{100}\right) + \frac{a\,T}{b + T} \qquad\qquad T_{orvalho} = \frac{b\,\gamma}{a - \gamma}$$
-
-O ponto de orvalho é a temperatura em que o ar ficaria saturado e começaria a condensar.
 
 ### 4.6 Botão com debounce
 
@@ -232,7 +227,6 @@ O ESP32 responde na porta 80, no IP mostrado no display e no monitor serial.
   "umidade": 59.71,
   "pressao": 957.88,
   "altitude": 607.4,
-  "ponto_orvalho": 16.18,
   "botao": false,
   "toques_botao": 3,
   "led": false,
@@ -240,7 +234,7 @@ O ESP32 responde na porta 80, no IP mostrado no display e no monitor serial.
   "uptime_s": 842,
   "heap_livre": 214532,
   "ip": "192.168.0.50",
-  "versao": "1.0.0"
+  "versao": "1.0.2"
 }
 ```
 
@@ -248,7 +242,6 @@ O ESP32 responde na porta 80, no IP mostrado no display e no monitor serial.
 |---|---|
 | `sensor_ok` | `false` se o BME280 não foi encontrado (nesse caso as leituras vêm zeradas) |
 | `temperatura`, `umidade`, `pressao`, `altitude` | Última leitura (°C, %, hPa, m) |
-| `ponto_orvalho` | Ponto de orvalho (°C), calculado na hora |
 | `botao` | Estado atual do botão (`true` = pressionado) |
 | `toques_botao` | Quantas vezes o botão foi pressionado desde o início/último reset |
 | `led` | Estado atual do LED |
@@ -305,7 +298,7 @@ OTA (*Over-The-Air*) permite gravar um novo firmware pela rede Wi-Fi, sem conect
 
 1. No VS Code / PlatformIO, faça a alteração no código (por exemplo, mude `FW_VERSAO`) e clique em **Build**.
 2. O arquivo gerado fica em `Codigo_esp/.pio/build/heltec_wifi_lora_32_V2/firmware.bin`.
-3. No navegador, acesse `http://IP-DO-ESP/update`.
+3. No navegador, acesse `http://IP-DO-ESP/update`, ou clique no botão **Atualizar firmware (OTA)** no dashboard do Node-RED, que abre essa página numa aba nova.
 4. Faça login: o usuário é o valor de `OTA_HOSTNAME` e a senha é o valor de `OTA_SENHA`.
 5. Selecione **Firmware**, escolha o `firmware.bin` e aguarde o envio. A placa reinicia sozinha com o novo código.
 6. Confira a nova versão no dashboard do Node-RED ou no display.
@@ -323,27 +316,31 @@ O dashboard foi feito com o pacote **node-red-dashboard**. O fluxo completo est�
 ```mermaid
 flowchart LR
     subgraph Configuração
-        I0[inject<br/>ao iniciar] --> C0[change<br/>flow.esp_ip]
+        I0[inject<br/>ao iniciar] --> C0[change<br/>IP do ESP] --> OTA[template<br/>botão OTA]
     end
     subgraph Leitura
         I1[inject<br/>a cada 1 s] --> F1[function<br/>monta requisições]
         F1 -- saída 1 --> H1[http request<br/>GET /dados] --> F2[function<br/>separa leituras] --> W[gauges, gráficos,<br/>textos, switch]
         H1 --> A[function<br/>verifica temperatura] --> AV[texto<br/>alerta]
+        H1 --> CA[function<br/>controle automático]
+        H1 --> IS[function<br/>info do sistema] --> WS[gauge Wi-Fi,<br/>tempo ligado, memória]
         F1 -- saída 2 --> H2[http request<br/>GET /stats] --> T[template<br/>tabela de estatística]
     end
     subgraph Controle
         S[switch LED] --> F3[function<br/>monta comando POST]
         B[button<br/>Zerar estatística] --> F3
+        CA --> F3
         F3 --> H3[http request<br/>método via msg.method] --> D[debug]
         L[numeric<br/>limite de temperatura] --> FL[function<br/>salva limite]
+        MA[switch<br/>Modo automático] --> CM[change<br/>flow.modo_auto]
     end
 ```
 
-**1. Configuração.** Ao iniciar o Node-RED, um `inject` dispara uma única vez e o nó `change` guarda o IP do ESP na variável de fluxo `flow.esp_ip`. As funções que montam requisições leem o IP dali, então ele é configurado num lugar só.
+**1. Configuração.** Ao iniciar o Node-RED, um `inject` dispara uma única vez e o nó `change` guarda o IP do ESP na variável de fluxo `flow.esp_ip`. As funções que montam requisições leem o IP dali, então ele é configurado num lugar só. A segunda regra do mesmo nó copia o IP para `msg.payload` e o envia ao **botão OTA** (descrito no item 3).
 
 **2. Leitura.** A cada 1 s, um `inject` aciona a função **monta requisições**, que gera duas mensagens: uma com a URL de `/dados` (saída 1) e outra com a de `/stats` (saída 2). Os dois nós `http request` estão com a URL em branco e usam o `msg.url` montado pela função. O `requestTimeout` de 2 s faz a requisição desistir rápido se a placa estiver desligada.
 
-A função **separa leituras** recebe o JSON de `/dados` e o distribui por **10 saídas**, uma para cada widget:
+A função **separa leituras** recebe o JSON de `/dados` e o distribui por **11 saídas**, uma para cada widget:
 
 | Saída | Destino | Conteúdo |
 |---|---|---|
@@ -353,10 +350,25 @@ A função **separa leituras** recebe o JSON de `/dados` e o distribui por **10 
 | 8 | Texto | Estado do botão (Pressionado/Solto) |
 | 9 | Texto | Status da conexão e versão do firmware |
 | 10 | Switch do LED | Estado real do LED, para manter o switch sincronizado |
+| 11 | Gráfico | Altitude estimada (m) |
 
 Se o ESP não responder (`statusCode` diferente de 200), a função atualiza apenas o status para **🔴 Offline** e mantém os demais widgets como estavam.
 
 O nó **verifica temperatura** recebe a mesma resposta de `/dados` e atualiza o aviso no dashboard. Ele mostra **ALERTA** quando a temperatura é maior ou igual ao limite, **Normal** quando está abaixo dele e informa falha de conexão ou sensor. O limite começa em **30 °C** e pode ser ajustado no widget **Limite de temperatura (°C)**, entre 0 e 50 °C, em passos de 0,5 °C. O valor fica na memória do Node-RED; após reiniciar o fluxo, volta a 30 °C.
+
+**Controle automático do LED.** A função **controle automático** também recebe a resposta de `/dados`. Quando o switch **Modo automático** está ligado (`flow.modo_auto = true`), ela compara a temperatura com o mesmo limite do alerta e comanda o LED como um termostato:
+- temperatura **≥ limite** e LED apagado → envia o comando para **ligar** o LED;
+- temperatura **< limite − 0,5 °C** e LED aceso → envia o comando para **desligar** o LED;
+- entre esses dois valores, não faz nada.
+
+Essa faixa de 0,5 °C é uma **histerese**. A leitura do sensor oscila alguns décimos de grau de um segundo para o outro; sem a histerese, com a temperatura próxima do limite, o LED ligaria e desligaria a cada leitura. Com limite de 30 °C, por exemplo, o LED acende em 30,0 °C e só apaga abaixo de 29,5 °C. A função consulta o estado real do LED (campo `led` de `/dados`) e só envia comando quando é preciso mudar. O comando sai com o tópico `led` e vai para a mesma função **monta comando POST** usada pelo switch manual. O modo automático começa desligado sempre que o Node-RED reinicia.
+
+**Informações do sistema.** A função **info do sistema** usa os campos `rssi`, `uptime_s` e `heap_livre` de `/dados` e os distribui por 3 saídas:
+- **Sinal Wi-Fi:** gauge de −100 a −30 dBm, vermelho abaixo de −80 dBm (sinal fraco), amarelo até −67 dBm e verde acima (sinal bom);
+- **Ligado há:** `uptime_s` convertido para dias, horas, minutos e segundos;
+- **Memória livre:** `heap_livre` convertido para kB.
+
+Esses dados mostram a saúde da placa: o tempo ligado volta a zero quando o ESP reinicia (por exemplo, depois de uma atualização OTA) e uma queda contínua da memória livre indicaria vazamento de memória no firmware.
 
 O JSON de `/stats` vai direto para o nó **template**, que monta a tabela em HTML usando as expressões do AngularJS (por exemplo, `{{msg.payload.temperatura.media | number:2}}`).
 
@@ -368,15 +380,18 @@ O `http request` está configurado com o método *"definido por msg.method"*, e 
 
 O switch tem a opção *"pass through"* **desativada**. Assim, quando a saída 10 atualiza o switch com o estado real do LED, ele não envia um novo comando de volta para a placa.
 
+**Botão de OTA.** O template **Botão OTA** mostra o botão **Atualizar firmware (OTA)**, que abre `http://IP/update` numa aba nova. O nó `button` do dashboard só envia mensagens para dentro do fluxo e não abre links, por isso foi usado um template com um link (`<a>`) estilizado como botão. O IP chega pelo nó **IP do ESP**; um pequeno script no template guarda o último IP válido recebido (`scope.ip`), e a opção *Reload last value on refresh* reenvia esse valor quando a página do dashboard é recarregada.
+
 ### 7.2 Layout do dashboard
 
-O dashboard tem uma aba, **Estação ESP**, com três grupos:
+O dashboard tem uma aba, **Estação ESP**, com quatro grupos:
 
 | Grupo | Conteúdo |
 |---|---|
-| **Leitura de dados** | Gauges de temperatura (0–50 °C), umidade (0–100 %) e pressão (900–1050 hPa); gráficos de linha dos últimos 10 minutos de cada variável; contagem e estado do botão |
-| **Controle do ESP** | Status da conexão (online/offline e versão do firmware), switch do LED, ajuste do limite de temperatura e aviso de alerta |
+| **Leitura de dados** | Gauges de temperatura (0–50 °C), umidade (0–100 %) e pressão (900–1050 hPa); gráficos de linha de temperatura, umidade, pressão e altitude; contagem e estado do botão |
+| **Controle do ESP** | Status da conexão (online/offline e versão do firmware), switch do LED, switch do modo automático, limite de temperatura, aviso de alerta e botão de atualização OTA |
 | **Análise estatística** | Tabela com número de amostras, horário de início, e média, desvio padrão, mínimo e máximo de temperatura, umidade, pressão e altitude; botão para zerar a estatística |
+| **Informações do sistema** | Gauge do sinal Wi-Fi (dBm), tempo desde que a placa ligou e memória RAM livre |
 
 ---
 
@@ -408,10 +423,11 @@ O dashboard tem uma aba, **Estação ESP**, com três grupos:
 2. Inicie com o comando `node-red` e acesse `http://localhost:1880`.
 3. Menu ☰ → **Gerenciar paleta** → **Instalar** → `node-red-dashboard`.
 4. Menu ☰ → **Importar** → selecione `Node-Red-Interface/node-red.json` → **Importar**.
-5. Abra o nó **"IP do ESP (edite aqui)"** e troque `192.168.0.50` pelo IP mostrado no display ou no monitor serial.
+5. Abra o nó **"IP do ESP"** e, na primeira regra, troque o IP pelo que aparece no display ou no monitor serial.
 6. Clique em **Implementar**.
 7. Acesse o dashboard em `http://localhost:1880/ui`.
 8. No grupo **Controle do ESP**, ajuste **Limite de temperatura (°C)**. Para testar o alerta, escolha um limite abaixo da temperatura medida e depois um acima dela.
+9. Para testar o **modo automático**, ligue o switch **Modo automático**, coloque o limite um pouco acima da temperatura atual e aqueça o sensor com os dedos. O LED acende quando a temperatura passa do limite e apaga quando ela cai abaixo de limite − 0,5 °C.
 
 O computador com o Node-RED e o ESP32 precisam estar **na mesma rede**.
 
@@ -428,3 +444,5 @@ O computador com o Node-RED e o ESP32 precisam estar **na mesma rede**.
 | Erro de compilação em `ElegantOTA.begin` | Falta a flag do servidor assíncrono | Confira `build_flags = -DELEGANTOTA_USE_ASYNC_WEBSERVER=1` no `platformio.ini` |
 | Página `/update` recusa o login | Usuário/senha incorretos | Usuário = `OTA_HOSTNAME`, senha = `OTA_SENHA` |
 | Widget não aparece no dashboard | Nó sem grupo selecionado | Edite o nó e selecione o grupo correto |
+| Botão **Atualizar firmware (OTA)** abre `about:blank#blocked` | O template recebeu um valor que não é o IP | Confira a segunda regra do nó **IP do ESP**: `msg.payload` deve receber `flow.esp_ip` |
+| LED não reage no modo automático | Modo automático desligado ou limite acima da temperatura | Ligue o switch **Modo automático** e confira o limite; o debug **resposta do comando** mostra `{led: true}` quando o comando é enviado |
