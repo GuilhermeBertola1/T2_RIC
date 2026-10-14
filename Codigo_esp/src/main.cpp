@@ -12,13 +12,13 @@
 #include <ElegantOTA.h>
 
 // ------------------------------ WiFi ---------------------------------
-const char *WIFI_SSID = "ssid";
-const char *WIFI_PASS = "babyyoda";
+const char *WIFI_SSID = "Integral";
+const char *WIFI_PASS = "12345678";
 
 // ------------------------------ OTA ----------------------------------
 #define OTA_HOSTNAME "esp-lora"
 #define OTA_SENHA "AmandaBertola"
-#define FW_VERSAO "1.0.0"
+#define FW_VERSAO "1.0.2"
 
 // ------------------------------ Pinos --------------------------------
 #define LEDPIN 25
@@ -101,7 +101,6 @@ void     atualizarBotao();
 void     setLed(bool ligado);
 void     acumularEstatisticas(const DadosBME &d);
 void     atualizarDisplay();
-float    pontoOrvalho(float t, float rh);
 String   horaFormatada();
 void     configurarRotas();
 
@@ -215,7 +214,6 @@ void configurarRotas() {
         doc["umidade"]       = d.umidade;
         doc["pressao"]       = d.pressao;
         doc["altitude"]      = d.altitude;
-        doc["ponto_orvalho"] = pontoOrvalho(d.temperatura, d.umidade);
         doc["botao"]         = botaoEstado;
         doc["toques_botao"]  = botaoContagemPressoes;
         doc["led"]           = ledEstado;
@@ -291,14 +289,6 @@ DadosBME readSensorBME() {
     leitura.altitude    = bme.readAltitude(SEALEVELPRESSURE_HPA);
     leitura.umidade     = bme.readHumidity();
     return leitura;
-}
-
-// Ponto de orvalho pela fórmula de Magnus
-float pontoOrvalho(float t, float rh) {
-    if (rh <= 0) return 0;
-    const float a = 17.62, b = 243.12;
-    float g = log(rh / 100.0) + a * t / (b + t);
-    return b * g / (a - g);
 }
 
 // =====================================================================
