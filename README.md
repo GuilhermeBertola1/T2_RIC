@@ -55,7 +55,7 @@ O ESP32 funciona como **servidor**: ele não envia dados por conta própria, ape
 
 | Função | Pino (GPIO) | Observação |
 |---|---|---|
-| BME280 — SDA | 23 | Barramento I2C **secundário** (`TwoWire(1)`) |
+| BME280 — SDA | 21 | Barramento I2C **secundário** (`TwoWire(1)`) |
 | BME280 — SCL | 22 | |
 | BME280 — VCC / GND | 3V3 / GND | |
 | OLED — SDA | 4 | Barramento I2C **primário**, interno da placa |
@@ -64,7 +64,7 @@ O ESP32 funciona como **servidor**: ele não envia dados por conta própria, ape
 | LED | 25 | LED branco da placa |
 | Botão | 0 | Botão **PRG** da placa (`INPUT_PULLUP`, ativo em LOW) |
 
-O sensor e o display ficam em **barramentos I2C separados**: o display usa o barramento interno da placa (4/15) e o BME280 usa um segundo barramento (23/22). O GPIO21 controla a saída Vext da Heltec V2 e não é usado pelo BME280.
+O sensor e o display ficam em **barramentos I2C separados**: o display usa o barramento interno da placa (4/15) e o BME280 usa um segundo barramento (21/22).
 
 ---
 
@@ -139,7 +139,9 @@ void loop() {
     ElegantOTA.loop();     // trata a atualização OTA quando houver
     atualizarBotao();      // verifica o botão a cada volta (com debounce)
 
+    unsigned long agora = millis();
     if (agora - tempoAnteriorLeitura >= INTERVALO_LEITURA) {   // a cada 1 s
+        tempoAnteriorLeitura = agora;
         ultimaLeitura = readSensorBME();
         if (sensorOk) acumularEstatisticas(ultimaLeitura);
         atualizarDisplay();
@@ -203,7 +205,7 @@ LED OFF   fw 1.0.0
 
 O projeto usa o **ESPAsyncWebServer**, em que cada requisição é tratada por uma tarefa separada (do AsyncTCP), sem bloquear o `loop()`.
 
-Por isso há uma regra de projeto importante: **o sensor só é lido no `loop()`**. As rotas apenas consultam a última leitura guardada na variável global `ultimaLeitura`. Se uma rota também lesse o BME280, as duas tarefas poderiam acessar o barramento I2C ao mesmo tempo e corromper a comunicação. Também não há `delay()` dentro das rotas.
+Por isso há uma regra de projeto importante: o sensor é lido uma vez no `setup()` e depois no `loop()`; **as rotas HTTP não fazem leituras do sensor**. Elas apenas consultam a última leitura guardada na variável global `ultimaLeitura`. Se uma rota também lesse o BME280, as duas tarefas poderiam acessar o barramento I2C ao mesmo tempo e corromper a comunicação. Também não há `delay()` dentro das rotas.
 
 ---
 
@@ -291,7 +293,7 @@ Sem o parâmetro `estado`, a resposta é `400` com a mensagem `Use /led?estado=0
 { "reiniciando": true }
 ```
 
-A placa só reinicia **depois** que a resposta é entregue (`onDisconnect`), para o cliente não ficar sem resposta.
+O reinício é solicitado no callback `onDisconnect`, quando a conexão HTTP do cliente é encerrada. O momento exato depende de quando o cliente desconecta.
 
 ---
 
@@ -337,7 +339,7 @@ flowchart LR
     end
 ```
 
-**1. Configuração.** Ao iniciar o Node-RED, um `inject` dispara uma única vez e o nó `change` guarda o IP do ESP na variável de fluxo `flow.esp_ip`. Todos os outros nós leem o IP dali, então ele é configurado num lugar só.
+**1. Configuração.** Ao iniciar o Node-RED, um `inject` dispara uma única vez e o nó `change` guarda o IP do ESP na variável de fluxo `flow.esp_ip`. As funções que montam requisições leem o IP dali, então ele é configurado num lugar só.
 
 **2. Leitura.** A cada 1 s, um `inject` aciona a função **monta requisições**, que gera duas mensagens: uma com a URL de `/dados` (saída 1) e outra com a de `/stats` (saída 2). Os dois nós `http request` estão com a URL em branco e usam o `msg.url` montado pela função. O `requestTimeout` de 2 s faz a requisição desistir rápido se a placa estiver desligada.
 
@@ -421,7 +423,7 @@ O computador com o Node-RED e o ESP32 precisam estar **na mesma rede**.
 |---|---|---|
 | Status **🔴 Offline** no dashboard | IP errado no nó "IP do ESP", ou PC e ESP em redes diferentes | Confira o IP no display/monitor serial e teste `http://IP/dados` no navegador |
 | Monitor serial mostra `Wi-Fi falhou, reiniciando...` | SSID/senha errados ou rede fora de alcance | Corrija `WIFI_SSID`/`WIFI_PASS`; o ESP32 só conecta em redes de 2,4 GHz |
-| `"sensor_ok": false` e valores zerados | BME280 não encontrado | Confira a ligação SDA (23) / SCL (22) e a alimentação; alguns módulos usam o endereço `0x77` |
+| `"sensor_ok": false` e valores zerados | BME280 não encontrado | Confira a ligação SDA (21) / SCL (22) e a alimentação; alguns módulos usam o endereço `0x77` |
 | Horário de início da estatística em 1970 | Sem acesso à internet no boot (NTP falhou) | Não afeta as medições; com internet, o horário é sincronizado na próxima inicialização |
 | Erro de compilação em `ElegantOTA.begin` | Falta a flag do servidor assíncrono | Confira `build_flags = -DELEGANTOTA_USE_ASYNC_WEBSERVER=1` no `platformio.ini` |
 | Página `/update` recusa o login | Usuário/senha incorretos | Usuário = `OTA_HOSTNAME`, senha = `OTA_SENHA` |
