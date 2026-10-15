@@ -51,7 +51,7 @@
                 "t": "set",
                 "p": "esp_ip",
                 "pt": "flow",
-                "to": "10.155.221.110",
+                "to": "10.155.221.226",
                 "tot": "str"
             },
             {
@@ -829,7 +829,7 @@
         "z": "f1a265404c7b2006",
         "group": "g_ctrl",
         "name": "Botão OTA",
-        "order": 11,
+        "order": 14,
         "width": 8,
         "height": 1,
         "format": "<script>\n    (function(scope) {\n    scope.$watch('msg', function(msg) {\n        if (msg && typeof msg.payload === 'string' && msg.payload.length > 0) {\n            scope.ip = msg.payload;\n        }\n    });\n})(scope);\n</script>\n\n<a class=\"md-button md-raised\" style=\"width:100%; margin:0\" ng-href=\"http://{{ip}}/update\" target=\"_blank\">\n    <i class=\"fa fa-upload\"></i> Atualizar firmware (OTA)\n</a>",
@@ -1025,7 +1025,7 @@
         "z": "f1a265404c7b2006",
         "name": "",
         "group": "g_ctrl",
-        "order": 14,
+        "order": 12,
         "width": 4,
         "height": 1,
         "passthru": false,
@@ -1091,7 +1091,7 @@
         ]
     },
     {
-        "id": "25bc37cc2c8696ac",
+        "id": "6edd3e602afb0904",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1101,7 +1101,7 @@
         "height": 1
     },
     {
-        "id": "7d9525c5a4c2efe6",
+        "id": "714592e4a5d31fd6",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1111,7 +1111,7 @@
         "height": 1
     },
     {
-        "id": "ad558cd512af3ac0",
+        "id": "ea3a1c8cd0b6a66a",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1121,7 +1121,7 @@
         "height": 1
     },
     {
-        "id": "e9cadb26bc2d4528",
+        "id": "5f895479428d7dbf",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1131,7 +1131,7 @@
         "height": 1
     },
     {
-        "id": "82c178b72182e215",
+        "id": "f4510edd3ed41e32",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1141,7 +1141,7 @@
         "height": 1
     },
     {
-        "id": "4aeef63be57b7aef",
+        "id": "04297358b341b2d4",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1151,7 +1151,7 @@
         "height": 1
     },
     {
-        "id": "3f77faf94c4dde64",
+        "id": "0dc205ac5e65d50b",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1161,7 +1161,7 @@
         "height": 1
     },
     {
-        "id": "461fdf422102c733",
+        "id": "346be5cd201471e2",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1171,7 +1171,7 @@
         "height": 1
     },
     {
-        "id": "2e700a500e1fa5fc",
+        "id": "3a0302ec05950bf9",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1181,7 +1181,7 @@
         "height": 1
     },
     {
-        "id": "c606e9232490d2ae",
+        "id": "05227f51fce757db",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1191,7 +1191,7 @@
         "height": 1
     },
     {
-        "id": "53c431d155498af5",
+        "id": "4159065e9f010c77",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1201,7 +1201,7 @@
         "height": 1
     },
     {
-        "id": "f8c0fe61f99128f2",
+        "id": "0fadf2018b323b25",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1211,7 +1211,7 @@
         "height": 1
     },
     {
-        "id": "90b471930d400ad3",
+        "id": "c7705c4e5eacf238",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1221,7 +1221,7 @@
         "height": 1
     },
     {
-        "id": "e8d9d65fa5ae4781",
+        "id": "1b1f5b716f1e0b94",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1231,7 +1231,7 @@
         "height": 1
     },
     {
-        "id": "a0b662569e1d52d3",
+        "id": "bc09f08010a962e0",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1241,7 +1241,7 @@
         "height": 1
     },
     {
-        "id": "4b8cba13879472af",
+        "id": "e005913f3d17f0d5",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1251,7 +1251,7 @@
         "height": 1
     },
     {
-        "id": "1017e2651bbe91e6",
+        "id": "ea833b13f40b0fb2",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1261,33 +1261,33 @@
         "height": 1
     },
     {
-        "id": "772ff3119bc9db62",
+        "id": "56d9f8b721bd5350",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
         "group": "g_ctrl",
-        "order": 12,
-        "width": 1,
+        "order": 11,
+        "width": 2,
         "height": 1
     },
     {
-        "id": "2c33fe8f21544255",
+        "id": "0635e3fc37f704e0",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
         "group": "g_ctrl",
         "order": 13,
-        "width": 2,
+        "width": 3,
         "height": 1
     },
     {
-        "id": "21bea1a1bdc584fa",
+        "id": "42b05f1024d25f51",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
         "group": "g_ctrl",
         "order": 15,
-        "width": 3,
+        "width": 1,
         "height": 1
     },
     {
@@ -1344,7 +1344,7 @@
         "hidden": false
     },
     {
-        "id": "c12a2893204a0411",
+        "id": "6457cbdd498ceb42",
         "type": "global-config",
         "env": [],
         "modules": {
