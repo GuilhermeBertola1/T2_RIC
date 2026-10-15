@@ -1020,7 +1020,78 @@
         "wires": []
     },
     {
-        "id": "1891e961ee4a72ea",
+        "id": "b9e6ecaec117bd52",
+        "type": "ui_button",
+        "z": "f1a265404c7b2006",
+        "name": "",
+        "group": "g_ctrl",
+        "order": 14,
+        "width": 4,
+        "height": 1,
+        "passthru": false,
+        "label": "Reiniciar ESP",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "refresh",
+        "payload": "O ESP vai reiniciar e ficar alguns segundos offline.",
+        "payloadType": "str",
+        "topic": "Reiniciar o ESP?",
+        "topicType": "str",
+        "x": 100,
+        "y": 740,
+        "wires": [
+            [
+                "6f47e3ea26e56440"
+            ]
+        ]
+    },
+    {
+        "id": "6f47e3ea26e56440",
+        "type": "ui_toast",
+        "z": "f1a265404c7b2006",
+        "position": "dialog",
+        "displayTime": "3",
+        "highlight": "",
+        "sendall": true,
+        "outputs": 1,
+        "ok": "Reiniciar",
+        "cancel": "Cancelar",
+        "raw": false,
+        "className": "",
+        "topic": "",
+        "name": "",
+        "x": 310,
+        "y": 740,
+        "wires": [
+            [
+                "0cf9ef625d76e2b2"
+            ]
+        ]
+    },
+    {
+        "id": "0cf9ef625d76e2b2",
+        "type": "function",
+        "z": "f1a265404c7b2006",
+        "name": "function 1",
+        "func": "if (msg.payload !== 'Reiniciar') return null;\nreturn { topic: 'reiniciar', payload: '' };",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 740,
+        "wires": [
+            [
+                "7c4584b25ad9d92a"
+            ]
+        ]
+    },
+    {
+        "id": "25bc37cc2c8696ac",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1030,7 +1101,7 @@
         "height": 1
     },
     {
-        "id": "30562a24dd41994a",
+        "id": "7d9525c5a4c2efe6",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1040,7 +1111,7 @@
         "height": 1
     },
     {
-        "id": "5a687eade651b769",
+        "id": "ad558cd512af3ac0",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1050,7 +1121,7 @@
         "height": 1
     },
     {
-        "id": "a111bd170a6b25bc",
+        "id": "e9cadb26bc2d4528",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1060,7 +1131,7 @@
         "height": 1
     },
     {
-        "id": "a9304bbdc70ac052",
+        "id": "82c178b72182e215",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1070,7 +1141,7 @@
         "height": 1
     },
     {
-        "id": "e52e318dbef2d976",
+        "id": "4aeef63be57b7aef",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1080,7 +1151,7 @@
         "height": 1
     },
     {
-        "id": "55f03311bfab6a61",
+        "id": "3f77faf94c4dde64",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1090,7 +1161,7 @@
         "height": 1
     },
     {
-        "id": "a239a654bb9b5894",
+        "id": "461fdf422102c733",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1100,7 +1171,7 @@
         "height": 1
     },
     {
-        "id": "4a293edaf14fccd7",
+        "id": "2e700a500e1fa5fc",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1110,7 +1181,7 @@
         "height": 1
     },
     {
-        "id": "90061ed6a6f59c30",
+        "id": "c606e9232490d2ae",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1120,7 +1191,7 @@
         "height": 1
     },
     {
-        "id": "f83a6668d9780a25",
+        "id": "53c431d155498af5",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1130,7 +1201,7 @@
         "height": 1
     },
     {
-        "id": "fdf2cfe0ab5cb58a",
+        "id": "f8c0fe61f99128f2",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1140,7 +1211,7 @@
         "height": 1
     },
     {
-        "id": "dcc7f79547852219",
+        "id": "90b471930d400ad3",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1150,7 +1221,7 @@
         "height": 1
     },
     {
-        "id": "543884f4a4a72fba",
+        "id": "e8d9d65fa5ae4781",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1160,7 +1231,7 @@
         "height": 1
     },
     {
-        "id": "43c4e3e74c71a86b",
+        "id": "a0b662569e1d52d3",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1170,7 +1241,7 @@
         "height": 1
     },
     {
-        "id": "12903e75f4606c11",
+        "id": "4b8cba13879472af",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1180,7 +1251,7 @@
         "height": 1
     },
     {
-        "id": "e18537afb0d4142f",
+        "id": "1017e2651bbe91e6",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
@@ -1190,13 +1261,33 @@
         "height": 1
     },
     {
-        "id": "c2479387992d45ce",
+        "id": "772ff3119bc9db62",
         "type": "ui_spacer",
         "z": "f1a265404c7b2006",
         "name": "spacer",
         "group": "g_ctrl",
         "order": 12,
         "width": 1,
+        "height": 1
+    },
+    {
+        "id": "2c33fe8f21544255",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 13,
+        "width": 2,
+        "height": 1
+    },
+    {
+        "id": "21bea1a1bdc584fa",
+        "type": "ui_spacer",
+        "z": "f1a265404c7b2006",
+        "name": "spacer",
+        "group": "g_ctrl",
+        "order": 15,
+        "width": 3,
         "height": 1
     },
     {
@@ -1253,7 +1344,7 @@
         "hidden": false
     },
     {
-        "id": "b6ecd67185c82c9c",
+        "id": "c12a2893204a0411",
         "type": "global-config",
         "env": [],
         "modules": {

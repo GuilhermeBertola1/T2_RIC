@@ -332,6 +332,11 @@ flowchart LR
         CA --> F3
         F3 --> H3[http request<br/>método via msg.method] --> D[debug]
         L[numeric<br/>limite de temperatura] --> FL[function<br/>salva limite]
+        MA[switch<br/>Modo automático] --> CM[change<br/>flow.modo_auto]
+        R[button<br/>Reiniciar ESP] --> RT[notification<br/>confirmação] --> RF[function<br/>filtra confirmação] --> F3
+    end
+```
+
 **1. Configuração.** Ao iniciar o Node-RED, um `inject` dispara uma vez e o nó **IP do ESP** guarda o endereço em `flow.esp_ip`. As funções que montam requisições e o botão OTA usam esse IP; no arquivo importado ele está configurado como `10.155.221.110` e deve ser trocado pelo IP mostrado na placa. A segunda regra do mesmo nó copia o IP para `msg.payload` e o envia ao botão OTA descrito no item 3.
 
 **2. Leitura.** A cada 1 s, um `inject` aciona a função **monta requisições**, que gera duas mensagens: uma com a URL de `/dados` (saída 1) e outra com a de `/stats` (saída 2). Os dois nós `http request` estão com a URL em branco e usam o `msg.url` montado pela função. O `requestTimeout` de 2 s faz a requisição desistir rápido se a placa estiver desligada.
@@ -352,36 +357,33 @@ Se o ESP não responder (`statusCode` diferente de 200), a função atualiza ape
 
 O nó **verifica temperatura** recebe a mesma resposta de `/dados` e atualiza o aviso no dashboard. Ele mostra **ALERTA** quando a temperatura é maior ou igual ao limite, **Normal** quando está abaixo dele e informa falha de conexão ou sensor. O limite começa em **30 °C** e pode ser ajustado no widget **Limite de temperatura (°C)**, entre 0 e 50 °C, em passos de 0,5 °C. O valor fica no contexto do fluxo Node-RED e o `inject` de inicialização o redefine para 30 °C ao iniciar.
 
-O nó **info do sistema** também recebe `/dados`: mostra o sinal Wi-Fi (`rssi`, em dBm), o tempo ligado (`uptime_s`, formatado em dias/horas/minutos/segundos) e a memória livre (`heap_livre`, convertida para kB). Sem resposta HTTP válida, os dois textos passam a `—`; o gauge do sinal mantém a última leitura.
-
 **Controle automático do LED.** A função **controle automático** também recebe a resposta de `/dados`. Quando o switch **Modo automático** está ligado (`flow.modo_auto = true`), ela compara a temperatura com o mesmo limite do alerta e comanda o LED como um termostato:
 - temperatura **≥ limite** e LED apagado → envia o comando para **ligar** o LED;
 - temperatura **< limite − 0,5 °C** e LED aceso → envia o comando para **desligar** o LED;
 - entre esses dois valores, não faz nada.
 
-Essa faixa de 0,5 °C é uma **histerese**. A leitura do sensor oscila alguns décimos de grau de um segundo para o outro; sem a histerese, com a temperatura próxima do limite, o LED ligaria e desligaria a cada leitura. Com limite de 30 °C, por exemplo, o LED acende em 30,0 °C e só apaga abaixo de 29,5 °C. A função consulta o estado real do LED (campo `led` de `/dados`) e só envia comando quando é preciso mudar. O comando sai com o tópico `led` e vai para a mesma função **monta comando POST** usada pelo switch manual. O modo automático começa desligado sempre que o Node-RED reinicia.
+Essa faixa de 0,5 °C é uma **histerese**. A leitura do sensor oscila alguns décimos de grau de um segundo para o outro; sem a histerese, com a temperatura próxima do limite, o LED ligaria e desligaria a cada leitura. Com limite de 30 °C, por exemplo, o LED acende em 30,0 °C e só apaga abaixo de 29,5 °C. A função consulta o estado real do LED (campo `led` de `/dados`) e só envia comando quando é preciso mudar. O comando sai com o tópico `led` e vai para a mesma função **monta comando POST** usada pelo switch manual. Enquanto o modo automático estiver ligado, um comando manual no switch do LED pode ser desfeito na consulta seguinte. O controle depende do Node-RED estar em execução e começa desligado sempre que o Node-RED reinicia.
 
 **Informações do sistema.** A função **info do sistema** usa os campos `rssi`, `uptime_s` e `heap_livre` de `/dados` e os distribui por 3 saídas:
 - **Sinal Wi-Fi:** gauge de −100 a −30 dBm, vermelho abaixo de −80 dBm (sinal fraco), amarelo até −67 dBm e verde acima (sinal bom);
 - **Ligado há:** `uptime_s` convertido para dias, horas, minutos e segundos;
 - **Memória livre:** `heap_livre` convertido para kB.
 
-Esses dados mostram a saúde da placa: o tempo ligado volta a zero quando o ESP reinicia (por exemplo, depois de uma atualização OTA) e uma queda contínua da memória livre indicaria vazamento de memória no firmware.
+Sem resposta HTTP válida, os dois textos passam a `—` e o gauge do sinal mantém a última leitura. Esses dados mostram a saúde da placa: o tempo ligado volta a zero quando o ESP reinicia (por exemplo, depois de uma atualização OTA ou do botão **Reiniciar ESP**) e uma queda contínua da memória livre indicaria vazamento de memória no firmware.
 
 O JSON de `/stats` vai direto para o nó **template**, que monta a tabela em HTML usando as expressões do AngularJS (por exemplo, `{{msg.payload.temperatura.media | number:2}}`).
 
-**3. Controle.** O switch do LED (tópico `led`, valores `"1"`/`"0"`) e o botão **Zerar estatística** (tópico `stats/reset`) enviam mensagens para a função **monta comando POST**, que define `msg.method = 'POST'` e monta a URL a partir do tópico:
+**3. Controle.** O switch do LED (tópico `led`, valores `"1"`/`"0"`), o botão **Zerar estatística** (tópico `stats/reset`) e o botão **Reiniciar ESP** (tópico `reiniciar`, depois da confirmação) enviam mensagens para a função **monta comando POST**, que define `msg.method = 'POST'` e monta a URL a partir do tópico:
 
 - `led` → `http://IP/led?estado=1` (ou `0`)
 - `stats/reset` → `http://IP/stats/reset`
+- `reiniciar` → `http://IP/reiniciar`
 
 O `http request` está configurado com o método *"definido por msg.method"*, e a resposta do ESP aparece no nó `debug`.
 
 O switch tem a opção *"pass through"* **desativada**. Assim, quando a saída 10 atualiza o switch com o estado real do LED, ele não envia um novo comando de volta para a placa.
 
-O switch **Modo automático** grava `true`/`false` em `flow.modo_auto`. Quando ativado e o sensor está disponível, a função **controle automático** usa cada resposta de `/dados` para ligar o LED ao atingir o limite de temperatura e desligá-lo quando a temperatura cai abaixo de (limite − 0,5 °C). Essa margem evita alternância rápida perto do limite. Ela envia comandos apenas quando o estado do LED precisa mudar; um comando manual pode ser revertido na próxima consulta enquanto o modo automático estiver ativo. Esse controle depende do Node-RED em execução.
-
-O switch tem a opção *"pass through"* **desativada**. Assim, quando a saída 10 atualiza o switch com o estado real do LED, ele não envia um novo comando de volta para a placa.
+**Botão de reinício.** O botão **Reiniciar ESP** não envia o comando direto: ele abre um nó **notification** no modo de diálogo, com o título "Reiniciar o ESP?" e os botões **Reiniciar** e **Cancelar**, para evitar um reinício por clique acidental. O diálogo devolve o texto do botão clicado em `msg.payload`; uma função logo em seguida só deixa a mensagem passar quando ele é `Reiniciar` e a transforma no tópico `reiniciar`, que segue para a **monta comando POST**. A placa responde `{"reiniciando": true}` e reinicia; o status fica **🔴 Offline** por alguns segundos, enquanto ela reconecta ao Wi-Fi, e o tempo ligado volta a zero. Como a estatística e a contagem do botão ficam na RAM do ESP, elas também recomeçam do zero.
 
 **Botão de OTA.** O template **Botão OTA** mostra o botão **Atualizar firmware (OTA)**, que abre `http://IP/update` numa aba nova. O nó `button` do dashboard só envia mensagens para dentro do fluxo e não abre links, por isso foi usado um template com um link (`<a>`) estilizado como botão. O IP chega pelo nó **IP do ESP**; um pequeno script no template guarda o último IP válido recebido (`scope.ip`), e a opção *Reload last value on refresh* reenvia esse valor quando a página do dashboard é recarregada.
 
@@ -392,7 +394,7 @@ O dashboard tem uma aba, **Estação ESP**, com quatro grupos:
 | Grupo | Conteúdo |
 |---|---|
 | **Leitura de dados** | Gauges de temperatura (0–50 °C), umidade (0–100 %) e pressão (900–1050 hPa); gráficos de linha de temperatura, umidade, pressão e altitude com janelas de 10 minutos para temperatura/umidade/pressão e 10 horas para altitude; contagem e estado do botão |
-| **Controle do ESP** | Status da conexão (online/offline e versão do firmware), switch do LED, switch do modo automático, ajuste do limite de temperatura, aviso de alerta e botão de atualização OTA |
+| **Controle do ESP** | Status da conexão (online/offline e versão do firmware), switch do LED, switch do modo automático, ajuste do limite de temperatura, aviso de alerta, botão de atualização OTA e botão para reiniciar o ESP (com confirmação) |
 | **Análise estatística** | Tabela com número de amostras, horário de início, e média, desvio padrão, mínimo e máximo de temperatura, umidade, pressão e altitude; botão para zerar a estatística |
 | **Informações do sistema** | Gauge do sinal Wi‑Fi (−100 a −30 dBm), tempo ligado e memória livre |
 
@@ -431,6 +433,7 @@ O dashboard tem uma aba, **Estação ESP**, com quatro grupos:
 7. Acesse o dashboard em `http://localhost:1880/ui`.
 8. No grupo **Controle do ESP**, ajuste **Limite de temperatura (°C)**. Para testar o alerta, escolha um limite abaixo da temperatura medida e depois um acima dela.
 9. Para testar o **modo automático**, ligue o switch **Modo automático**, coloque o limite um pouco acima da temperatura atual e aqueça o sensor com os dedos. O LED acende quando a temperatura passa do limite e apaga quando ela cai abaixo de limite − 0,5 °C. Para atualizar o firmware, use **Atualizar firmware (OTA)** e selecione o arquivo `.bin` compilado pelo PlatformIO.
+10. Para testar o reinício remoto, clique em **Reiniciar ESP** e confirme. O status fica offline por alguns segundos e, ao voltar, o campo **Ligado há** recomeça do zero.
 
 O computador com o Node-RED e o ESP32 precisam estar **na mesma rede**.
 
