@@ -18,7 +18,7 @@ const char *WIFI_PASS = "12345678";
 // ------------------------------ OTA ----------------------------------
 #define OTA_HOSTNAME "esp-lora"
 #define OTA_SENHA "AmandaBertola"
-#define FW_VERSAO "1.0.2"
+#define FW_VERSAO "1.0.3"
 
 // ------------------------------ Pinos --------------------------------
 #define LEDPIN 25
